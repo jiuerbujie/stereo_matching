@@ -1,6 +1,7 @@
 #include "stereo.h"
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/calib3d/calib3d.hpp"
 #include <iostream>
 #define PI 3.14159
 using namespace cv;
@@ -37,29 +38,19 @@ void stereo::stereoRectify(cv::InputArray _K1, cv::InputArray _K2, cv::InputArra
 		T.convertTo(T,CV_32F);
 	if(T.rows != 3)
 		T = T.t();
+
 	// R and T is the transformation from the first to the second camera
 	// Get the transformation from the second to the first camera
-
-	Mat R_inv = R;
-	Mat T_inv = T;
-	
-	/*float* R_inv_ptr = (float*)R_inv.data;
-	float* T_inv_ptr = (float*)T_inv.data;
-	float R_inv_data[3][3] = {{R_inv_ptr[0], R_inv_ptr[1], R_inv_ptr[2]}, 
-	{R_inv_ptr[3], R_inv_ptr[4],R_inv_ptr[5]},
-	R_inv_ptr[6], R_inv_ptr[7], R_inv_ptr[8]};
-	float T_inv_data[3] = {T_inv_ptr[0], T_inv_ptr[1], T_inv_ptr[2]};*/
-
-	//R1 = Mat(3,3,CV_32F, Scalar(0));
+	Mat R_inv = R.t();
+	Mat T_inv = -R.t()*T;
 	
 	Mat e1, e2, e3;
-	/*Mat e1 = R1.row(0);
-	Mat e2 = R1.row(1);
-	Mat e3 = R1.row(2);*/
 	e1 = T_inv.t() / norm(T_inv);
-	Mat z = (Mat_<float>(1, 3) << 0,0,1);
+	/*Mat z = (Mat_<float>(1, 3) << 0.0,0.0,-1.0);
 	e2 = e1.cross(z);
-	e2 = e2 / norm(e2);
+	e2 = e2 / norm(e2);*/
+	e2 = (Mat_<float>(1,3) << T_inv.at<float>(1)*-1, T_inv.at<float>(0), 0.0 );
+	e2 = e2 / (sqrt(e2.at<float>(0)*e2.at<float>(0) + e2.at<float>(1)*e2.at<float>(1)));
 	e3 = e1.cross(e2);
 	e3 = e3 / norm(e3);
 	e1.copyTo(R1.row(0));
@@ -68,20 +59,18 @@ void stereo::stereoRectify(cv::InputArray _K1, cv::InputArray _K2, cv::InputArra
 	R2 = R_inv * R1;
 
 	P1.setTo(Scalar(0));
-	//P1.colRange(0,3) = R1.clone();
 	R1.copyTo(P1.colRange(0, 3));
 	P1 = K1 * P1;
 
 	P2.setTo(Scalar(0));
-	//P2.colRange(0,3) = R2.clone();
 	R2.copyTo(P2.colRange(0, 3));
 	P2 = K2 * P2;
 	
 }
 
 void stereo::initUndistortRectifyMap(cv::InputArray _cameraMatrix, cv::InputArray _distCoeffs, cv::InputArray _R,
-	cv::InputArray _newCameraMatrix,cv::Size undisSize, int m1type, float rangeLongitude, float rangeLatitude,
-	cv::OutputArray _map1, cv::OutputArray _map2)
+	cv::InputArray _newCameraMatrix,cv::Size undisSize, int m1type,
+	cv::OutputArray _map1, cv::OutputArray _map2, cv::Point2f rangeLongitude, cv::Point2f rangeLatitude)
 {
 	Mat K = _cameraMatrix.getMat(), disCoeffs = _distCoeffs.getMat(), R = _R.getMat(),
 		newK = _newCameraMatrix.getMat();
@@ -171,7 +160,7 @@ void stereo::initUndistortRectifyMap(cv::InputArray _cameraMatrix, cv::InputArra
 				float m = (float)undisSize.width;
 				float n = (float)undisSize.height;
 
-				float longitude = rangeLongitude*j/m, latitude = rangeLatitude*i/n;
+				float longitude = rangeLongitude.y*j/m + rangeLongitude.x, latitude = rangeLatitude.y*i/n + rangeLatitude.x;
 				// geometric coordinate
 				float x_s = cos(longitude)*-1, y_s = sin(longitude)*cos(latitude)*-1, z_s = sin(latitude)*sin(longitude);
 				
@@ -245,7 +234,13 @@ void stereo::rectifyImage(cv::InputArray _inImage1, cv::InputArray _inImage2, cv
 
 }
 
-void stereo::stereoMatching(cv::Mat recImage1, cv::Mat recIamge2, cv::Mat disparityMap)
+void stereo::stereoMatching(cv::InputArray _recImage1, cv::InputArray _recIamge2, cv::OutputArray _disparityMap, int minDisparity, int numDisparities, int SADWindowSize, int P1, int P2)
 {
-
+	Mat img1 = _recImage1.getMat();
+	Mat img2 = _recIamge2.getMat();
+	_disparityMap.create(img1.size(), CV_16S);
+	Mat dis = _disparityMap.getMat();
+	StereoSGBM matcher(minDisparity, numDisparities, SADWindowSize, P1, P2);
+	matcher(img1, img2, dis);
+	dis = dis / 16.0;
 }

@@ -1,7 +1,7 @@
 #ifndef STEREO_H
 #define STEREO_H
 #include "opencv2/core/core.hpp"
-
+#define PI 3.14159
 enum CameraType {
 	CT_PESPECTIVE,
 	CT_FISHEYE
@@ -48,8 +48,8 @@ public:
 	*@param map2 [out] Output map of the v coordinate of undistorted image to distorted 
 	*/
 	void initUndistortRectifyMap(cv::InputArray _cameraMatrix, cv::InputArray _distCoeffs, cv::InputArray _R,
-		cv::InputArray _newCameraMatrix,cv::Size undisSize, int m1type, float rangeLongitude, float rangeLatitude,
-		cv::OutputArray _map1, cv::OutputArray _map2);
+		cv::InputArray _newCameraMatrix,cv::Size undisSize, int m1type, 
+		cv::OutputArray _map1, cv::OutputArray _map2,cv::Point2f rangeLongitude=cv::Point2f(0.0, PI), cv::Point2f rangeLatitude = cv::Point2f(0.0, PI));
 
 	/**
 	*@brief Rectify images using map1 and map2 computed by initUndistortRectifyMap
@@ -69,7 +69,7 @@ public:
 	*@param recImage2 [in] The second rectified image
 	*@param disparityMap [out] The output disparity map
 	*/
-	void stereoMatching(cv::Mat recImage1, cv::Mat recIamge2, cv::Mat disparityMap);
+	void stereoMatching(cv::InputArray _recImage1, cv::InputArray _recIamge2, cv::OutputArray _disparityMap, int minDisparity, int numDisparities, int SADWindowSize, int P1, int P2);
 
 	// data
 	CameraType cameraType;
